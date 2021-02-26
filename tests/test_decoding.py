@@ -8,6 +8,7 @@ from typing import NewType
 from typing import Tuple
 from typing import TypeVar
 from typing import Union
+from typing import Dict
 
 
 import typedjson
@@ -53,6 +54,12 @@ T2 = TypeVar("T2")
 class GenericJson(Generic[T1, T2]):
     t1: T1
     t2: T2
+
+
+@dataclass(frozen=True)
+class RecursiveJson:
+    data: str
+    more: Optional["RecursiveJson"]
 
 
 def test_can_decode_str() -> None:
@@ -237,6 +244,17 @@ def test_can_decode_union() -> None:
         typedjson.decode(Union[UserJson, DocumentJson], json_document)
         == expectation_document
     )
+
+
+def test_can_decode_recursive() -> None:
+    json_recursive = {"data": "foo", "more": {"data": "bar", "more": {"data": "baz"}}}
+
+    expectation = RecursiveJson(
+        data="foo",
+        more=RecursiveJson(data="bar", more=RecursiveJson(data="baz", more=None)),
+    )
+
+    assert typedjson.decode(RecursiveJson, json_recursive) == expectation
 
 
 def test_cannot_decode_with_wrong_type() -> None:
