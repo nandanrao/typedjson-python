@@ -18,6 +18,7 @@ from typedjson import TypeMismatch
 from typedjson import UnsupportedDecoding
 
 from dataclasses import dataclass
+from dataclasses import field
 
 A = NewType("A", str)
 
