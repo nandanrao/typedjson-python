@@ -3,6 +3,7 @@
 from typedjson.decoding import decode
 from typedjson.decoding import DecodingError
 from typedjson.decoding import TypeMismatch
+from typedjson.decoding import InitializationError
 from typedjson.decoding import UnsupportedDecoding
 from typedjson.dumping import dump
 from typedjson.dumping import dumps
@@ -13,6 +14,7 @@ __all__ = [
     "decode",
     "DecodingError",
     "TypeMismatch",
+    "InitializationError",
     "UnsupportedDecoding",
     "dump",
     "dumps",

@@ -9,12 +9,14 @@ from typing import Tuple
 from typing import TypeVar
 from typing import Union
 from typing import Dict
-
+from typing import NamedTuple
 
 import typedjson
 from typedjson import DecodingError
+from typedjson import InitializationError
 from typedjson import TypeMismatch
 from typedjson import UnsupportedDecoding
+
 from dataclasses import dataclass
 
 A = NewType("A", str)
@@ -24,6 +26,28 @@ A = NewType("A", str)
 class NameJson:
     first: str
     last: str
+
+
+class TupleNameJson(NamedTuple):
+    first: str
+    last: str
+
+
+class TupleUserJson(NamedTuple):
+    id: str
+    age: int
+    name: TupleNameJson
+
+
+class TupleDefaultJson(NamedTuple):
+    id: str
+    data: str = "default"
+
+
+@dataclass(frozen=True)
+class DefaultJson:
+    id: str
+    data: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -43,7 +67,7 @@ class OwnerJson:
 class DocumentJson:
     id: str
     content: str
-    owner: Optional[OwnerJson]
+    owner: Optional[OwnerJson] = None
 
 
 T1 = TypeVar("T1")
@@ -59,7 +83,7 @@ class GenericJson(Generic[T1, T2]):
 @dataclass(frozen=True)
 class RecursiveJson:
     data: str
-    more: Optional["RecursiveJson"]
+    more: Optional["RecursiveJson"] = None
 
 
 def test_can_decode_str() -> None:
@@ -148,6 +172,28 @@ def test_cannot_decode_dict_with_bad_value() -> None:
 
     expectation = DecodingError(TypeMismatch(("foo",)))
     assert typedjson.decode(Dict[str, str], json) == expectation
+
+
+def test_can_decode_dataclass_with_defaults() -> None:
+    json = {"id": "foo"}
+    assert typedjson.decode(DefaultJson, json) == DefaultJson(id="foo", data={})
+
+
+def test_can_decode_named_tuple() -> None:
+    json = {"id": "test-user", "age": 28, "name": {"first": "Tomoya", "last": "Kose"}}
+
+    expectation = TupleUserJson(
+        id="test-user", age=28, name=TupleNameJson(first="Tomoya", last="Kose")
+    )
+
+    assert typedjson.decode(TupleUserJson, json) == expectation
+
+
+def test_can_decode_named_tuple_with_defaults() -> None:
+    json = {"id": "foo"}
+    assert typedjson.decode(TupleDefaultJson, json) == TupleDefaultJson(
+        id="foo", data="default"
+    )
 
 
 def test_can_decode_dataclass() -> None:
@@ -325,9 +371,19 @@ def test_cannot_decode_generic_union() -> None:
 def test_cannot_decode_dataclass_with_lack_of_property() -> None:
     json = {"id": "test-user", "age": 28, "name": {"last": "Kose"}}
 
-    expectation = DecodingError(TypeMismatch(("name", "first")))
+    res = typedjson.decode(UserJson, json)
+    assert isinstance(res, DecodingError)
+    assert isinstance(res.reason, InitializationError)
+    assert res.reason.path == ("name",)
 
-    assert typedjson.decode(UserJson, json) == expectation
+
+def test_cannot_decode_parameterized_dataclass_with_lack_of_property() -> None:
+    json = {"t1": 100}
+
+    res = typedjson.decode(GenericJson[int, str], json)
+    assert isinstance(res, DecodingError)
+    assert isinstance(res.reason, InitializationError)
+    assert res.reason.path == ()
 
 
 def test_cannot_decode_parameterized_dataclass_with_wrong_parameter() -> None:

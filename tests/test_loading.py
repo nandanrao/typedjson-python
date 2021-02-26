@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class NameJson:
     first: str
-    last: Optional[str]
+    last: Optional[str] = None
 
 
 @dataclass(frozen=True)

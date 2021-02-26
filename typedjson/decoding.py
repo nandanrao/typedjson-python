@@ -8,6 +8,7 @@ from typing import Tuple
 from typing import Type
 from typing import TypeVar
 from typing import Union
+from typing import Dict
 
 
 Decoded = TypeVar("Decoded")
@@ -52,7 +53,33 @@ class UnsupportedDecoding(Exception):
         return self.__path
 
 
-FailureReason = Union[TypeMismatch, UnsupportedDecoding]
+class InitializationError(Exception):
+    def __init__(self, path: Path, underlying: TypeError) -> None:
+        self.__path = path
+        self.__underlying = underlying
+
+    def __eq__(self, x: Any) -> bool:
+        if isinstance(x, InitializationError):
+            return self.underlying == x.underlying and self.path == x.path
+        else:
+            return False
+
+    def __str__(self) -> str:
+        return (
+            f"Failed to initialize class at path {self.path} "
+            f"with error: {self.underlying}"
+        )
+
+    @property
+    def underlying(self) -> TypeError:
+        return self.__underlying
+
+    @property
+    def path(self) -> Path:
+        return self.__path
+
+
+FailureReason = Union[TypeMismatch, UnsupportedDecoding, InitializationError]
 
 
 class DecodingError(Exception):
@@ -92,7 +119,7 @@ def decode(
     for d in decoders:
         result = d(type_, json, path)
         if isinstance(result, DecodingError):
-            if isinstance(result.reason, TypeMismatch):
+            if not isinstance(result.reason, UnsupportedDecoding):
                 result_final = result
         else:
             result_final = result
@@ -173,13 +200,17 @@ def decode_as_class(
 
     annotations = hints_of(type_)
     if isinstance(json, dict) and annotations is not None:
-        parameters = tuple(map(_decode, annotations.items()))
+        parameters = {p: _decode((p, a)) for p, a in annotations.items() if p in json}
 
-        for parameter in parameters:
+        for parameter in parameters.values():
             if isinstance(parameter, DecodingError):
                 return parameter
 
-        return type_(*parameters)
+        try:
+            return type_(**parameters)
+        except TypeError as e:
+            return DecodingError(InitializationError(path, e))
+
     else:
         return DecodingError(UnsupportedDecoding(path))
 
