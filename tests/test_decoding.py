@@ -4,6 +4,7 @@ from typing import Any
 from typing import Generic
 from typing import List
 from typing import Optional
+from typing import NamedTuple
 from typing import NewType
 from typing import Tuple
 from typing import TypeVar
@@ -22,6 +23,17 @@ A = NewType("A", str)
 class NameJson:
     first: str
     last: str
+
+
+class TupleNameJson(NamedTuple):
+    first: str
+    last: str
+
+
+class TupleUserJson(NamedTuple):
+    id: str
+    age: int
+    name: TupleNameJson
 
 
 @dataclass(frozen=True)
@@ -116,6 +128,16 @@ def test_can_decode_homogeneous_list() -> None:
 def test_can_decode_heterogeneous_list() -> None:
     json = [1, "foo"]
     assert typedjson.decode(List[Union[str, int]], json) == json
+
+
+def test_can_decode_named_tuple() -> None:
+    json = {"id": "test-user", "age": 28, "name": {"first": "Tomoya", "last": "Kose"}}
+
+    expectation = TupleUserJson(
+        id="test-user", age=28, name=TupleNameJson(first="Tomoya", last="Kose")
+    )
+
+    assert typedjson.decode(TupleUserJson, json) == expectation
 
 
 def test_can_decode_dataclass() -> None:
